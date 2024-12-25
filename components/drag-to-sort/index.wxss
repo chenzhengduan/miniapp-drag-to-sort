@@ -1,0 +1,21 @@
+.wrapper{
+    position: relative;
+}
+.drag-and-drop-list{
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: relative;
+  }
+  .drag-and-drop-list.drag-y{
+    flex-direction: column;
+  }
+.drag-and-drop-list.drag-x{
+flex-direction: row;
+}
+.drag-and-drop-item{
+    word-break: break-all;
+    position: relative;
+    z-index: 1;
+}

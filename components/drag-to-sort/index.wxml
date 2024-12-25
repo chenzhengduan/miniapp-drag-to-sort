@@ -1,0 +1,3 @@
+<view class="drag-and-drop-list{{dragY ? ' drag-y' : ''}}{{dragX ? ' drag-x' : ''}}" data-drag-direction="{{dragY ? 'dragY' : (dragX ? 'dragX' : '')}}">
+    <slot></slot>
+</view>

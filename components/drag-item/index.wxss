@@ -1,0 +1,14 @@
+.drag-and-drop-item{
+    word-break: break-all;
+    position: relative;
+    z-index: 1;
+    display: inherit;
+    justify-content: inherit;
+    align-items: inherit;
+    flex-direction: inherit;
+    flex-wrap: inherit;
+    flex: 1;
+}
+:host{
+    position: relative;
+}

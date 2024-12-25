@@ -1,0 +1,13 @@
+<!--index.wxml-->
+<view class="container">
+  <scroll-view id="scroller" scroll-y>
+    <drag-to-sort length="{{list.length}}" drag-y bind:change="sortChange" bind:poschange="posChange">
+      <drag-item wx:for="{{list}}" wx:key="*this" class="item" idx="{{index}}">
+        <view slot="body" class="body">{{item}}</view>
+        <view slot="btn" class="btn">
+          <view class="btn-sign"></view>
+        </view>
+      </drag-item>
+    </drag-to-sort>
+  </scroll-view>
+</view>

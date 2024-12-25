@@ -1,0 +1,39 @@
+/**index.wxss**/
+#scroller{
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+}
+.item{
+  min-height: 80rpx;
+  font-size: 32rpx;
+  line-height: 56rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  word-break: break-all;
+  position: relative;
+  padding: 0 0 0 20px;
+  transition: all 0.3s;
+}
+.item.dragging{
+  background: pink;
+  color: yellow
+}
+.body{
+  flex: 1;
+}
+.btn{
+  padding: 10px 20px 10px 20px;
+}
+.btn .btn-sign, .btn:before, .btn:after{
+  display: block;
+  content: " ";
+  margin: 4px 0;
+  width: 40rpx;
+  height: 2px;
+  background: #999999;
+  border-radius: 2px;
+}

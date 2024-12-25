@@ -1,0 +1,5 @@
+<wxs module="dragToSort" src="./index.wxs"></wxs>
+<view class="drag-and-drop-item" linked="{{linked}}" change:linked="{{dragToSort.linked}}" poslist="{{posList}}" change:poslist="{{dragToSort.posListChanged}}" data-idx="{{idx}}" data-drag-direction="{{dragY ? 'dragY' : (dragX ? 'dragX' : '')}}">
+    <slot name="body"></slot>
+    <slot name="btn" bind:longpress="{{dragToSort.longPress}}" bind:touchmove="{{dragToSort.touchMove}}" bind:touchend="{{dragToSort.touchEnd}}" data-idx="{{idx}}" data-drag-direction="{{dragY ? 'dragY' : (dragX ? 'dragX' : '')}}" data-pos-list="{{posList}}" data-window="{{window}}"></slot>
+</view>

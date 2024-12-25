@@ -1,0 +1,276 @@
+var arrayCompare = function (property) {
+    return function (a, b) {
+        var value1 = a[property]
+        var value2 = b[property]
+        return value1 - value2
+    }
+}
+
+var getBounds = function (idx, posList, dragDirection) { // 获取边界值
+    var posList = posList.concat([]).sort(arrayCompare('currentIndex'))
+    var bounds = []
+    var sum = 0
+    var pre = 0
+    var center = 0
+    var next = 0
+    if (dragDirection == 'dragY') { // y轴可拖拽
+        posList.forEach(function (item, index) {
+            if (index < idx || index > idx) { // pre
+                bounds.push(sum + (item.size.height / 2))
+                sum += item.size.height
+            } else if (index == idx) {
+                pre = sum
+                bounds.push(sum + (item.size.height / 2))
+                sum += item.size.height
+                center = bounds[bounds.length - 1]
+                next = sum
+            }
+        })
+    } else if (dragDirection == 'dragX') { // x轴可拖拽
+        posList.forEach(function (item, index) {
+            if (index < idx || index > idx) { // pre
+                bounds.push(sum + (item.size.width / 2))
+                sum += item.size.width
+            } else if (index == idx) {
+                pre = sum
+                bounds.push(sum + (item.size.width / 2))
+                sum += item.size.width
+                center = bounds[bounds.length - 1]
+                next = sum
+            }
+        })
+    }
+    bounds = bounds.filter(function (item) {
+        return item != center
+    }).map(function (item) {
+        if (item > center) {
+            return item - next
+        } else if (item < center) {
+            return item - pre
+        }
+    })
+    return { bounds, pre, center, next }
+}
+
+var initBounds = function (e, ownerInstance) {
+    var state = ownerInstance.getState()
+    var window = e.currentTarget.dataset.window
+    var idx = e.currentTarget.dataset.idx
+    var dragDirection = e.currentTarget.dataset.dragDirection
+    var currentIdx = state.posList[idx].currentIndex
+    var clientX = parseInt(e.touches[0].clientX)
+    var clientY = parseInt(e.touches[0].clientY)
+    // 拖拽的是第几个，用于高亮显示等
+    ownerInstance.addClass('dragging')
+    ownerInstance.callMethod('log', {event: 'initBounds', ownerInstance: ownerInstance, e: e})
+    var wxsStyle = {}
+    if (dragDirection == 'dragY') {
+        wxsStyle = {'-webkit-transform': 'translateY(' + state.posList[idx].translate.y + 'px)', 'transform': 'translateY(' + state.posList[idx].translate.y + 'px)', 'zIndex': '99'}
+    } else if (dragDirection == 'dragX') {
+        wxsStyle = {'-webkit-transform': 'translateX(' + state.posList[idx].translate.x + 'px)', 'transform': 'translateX(' + state.posList[idx].translate.x + 'px)', 'zIndex': '99'}
+    }
+    
+    ownerInstance.setStyle(wxsStyle)
+    // 记录安全区域
+    state.window = window
+    // 拖拽起始点坐标（clientX, clientY）
+    state.lastPoint = {x: clientX, y: clientY}
+    state.dragStartOffset = { x: clientX, y: clientY }
+    state.offsetRect = {top: 20, right: state.window.width - 20, bottom: state.window.height - 20, left: 20}
+    // 拖拽的元素，记录下此时的数据，在拖拽过程中使用，此处要深拷贝
+    state.dragEle = JSON.parse(JSON.stringify(state.posList[idx]))
+    // 基于拖拽的元素当前的排序，获取边界信息，并获取到前一个/后一个的边界值（即超过该边界值时，排序会发生变化）
+    var boundResult = getBounds(currentIdx, state.posList, dragDirection)
+    state.bounds = boundResult.bounds
+    state.boundaryPre = state.bounds[currentIdx - 1]
+    state.boundaryNext = state.bounds[currentIdx]
+    // 初始化拖拽元素最终的偏移量
+    state.dragEndDistance = 0
+    // 初始化拖拽元素所在的排序位置（实时变化）为undefined
+    state._currentIdx = undefined
+    // 记录当前排序，用于拖拽结束后对比排序，决定是否触发change事件
+    var _posList = JSON.parse(JSON.stringify(state.posList))
+    state._sortArr = _posList.sort(arrayCompare('currentIndex')).map(function (item) {
+        return item.originalIndex
+    })
+    ownerInstance.callMethod('getScrollerRect')
+}
+
+
+module.exports = {
+    posListChanged: function (newVal, oldVal, ownerInstance, instance) {
+        var state = ownerInstance.getState()
+        if (!oldVal && newVal) {
+            state.transitionStyle = ownerInstance.getComputedStyle(['-webkit-transition', 'transition'])
+        }
+        if (newVal && !state.dragging && (state.idx || state.idx === 0) && state.dragElement) {
+            ownerInstance.removeClass('dragging')
+            ownerInstance.setStyle({'-webkit-transition': state.transitionStyle ? (state.transitionStyle['-webkit-transition'] + ', transform 0.3s') : 'transform 0.3s', 'transition': state.transitionStyle ? (state.transitionStyle['transition'] + ', transform 0.3s') : 'transform 0.3s', 'transform': 'translateY(' + newVal[state.idx].translate.y + 'px)', transform: 'translateY(' + newVal[state.idx].translate.y + 'px)', 'z-index': '1'})
+        }
+    },
+    linked: function (newVal, oldVal, ownerInstance, instance) {
+        var state = ownerInstance.getState()
+        if (newVal) {
+            state.dragElement = ownerInstance.selectComponent('.drag-and-drop-item')
+            var rect = ownerInstance.getBoundingClientRect()
+            var dataset = state.dragElement.getDataset()
+            ownerInstance.callMethod('updatePosList', {rect, dataset})
+            state.idx = dataset.idx
+        }
+    },
+    longPress: function (e, ownerInstance) {
+        var state = ownerInstance.getState()
+        state.dragElement = ownerInstance.selectComponent('.drag-and-drop-item')
+        state.posList = e.currentTarget.dataset.posList
+        state.dragging = true
+        if (state.posList && state.posList.length > 0) {
+            initBounds(e, ownerInstance)
+        }
+    },
+    touchMove: function (e, ownerInstance) {
+        var state = ownerInstance.getState()
+        if (!state.dragStartOffset) { // 起始点坐标不存在则认为没有进行拖拽操作，在拖拽结束的时候需要重置为undefined
+            return
+        }
+        var dragDirection = e.currentTarget.dataset.dragDirection
+        var clientX = parseInt(e.touches[0].clientX)
+        var clientY = parseInt(e.touches[0].clientY)
+        // 拖拽元素相对于起始点的偏移坐标
+        state.point = {x: clientX, y: clientY}
+        var distanceOffset = { x: clientX - state.dragStartOffset.x, y: clientY - state.dragStartOffset.y }
+        // 初始化拖拽元素即将达到的排序
+        var willIndex = undefined
+        // 初始化纵向/横向的拖拽距离int
+        var distance = 0
+        // 拖拽过程中，拖拽元素所在的排序位置（实时变化）
+        state._currentIdx = state._currentIdx == undefined ? state.dragEle.currentIndex : state._currentIdx
+        // 拖拽元素的初始排序（排序列表初始化时的排序）
+        var originalIndex = state.dragEle.originalIndex
+        // 判断拖拽方向
+        // var direction = ''
+        // var outOffArea = ''
+        // if (dragDirection == 'dragY') {
+        //     direction = state.point.y - state.lastPoint.y > 0 ? 'y' : '-y'
+        //     outOffArea = (state.point.y - state.posList[originalIndex].size.height / 2 < state.offsetRect.top) || (state.point.y + state.posList[originalIndex].size.height / 2 > state.offsetRect.bottom)
+        // } else if (dragDirection == 'dragX') {
+        //     direction = state.point.x - state.lastPoint.x > 0 ? 'x' : '-x'
+        //     outOffArea = (state.point.x - state.posList[originalIndex].size.width / 2 < state.offsetRect.left) || (state.point.x + state.posList[originalIndex].size.width / 2 > state.offsetRect.right)
+        // }
+        // if (outOffArea) {
+
+        // }
+        // // 实时更新拖拽元素的位置
+        if (dragDirection == 'dragY') {
+            state.posList[originalIndex].translate.y = state.dragEle.translate.y + distanceOffset.y
+            ownerInstance.setStyle({'-webkit-transition': 'none', 'transition': 'none', '-webkit-transform': 'translateY(' + state.posList[originalIndex].translate.y + 'px)', 'transform': 'translateY(' + state.posList[originalIndex].translate.y + 'px)', 'z-index': '99'})
+            distance = distanceOffset.y
+        } else if (dragDirection == 'dragX') {
+            state.posList[originalIndex].translate.x = state.dragEle.translate.x + distanceOffset.x
+            ownerInstance.setStyle({'-webkit-transition': 'none', 'transition': 'none', '-webkit-transform': 'translateX(' + state.posList[originalIndex].translate.x + 'px)', 'transform': 'translateX(' + state.posList[originalIndex].translate.x + 'px)', 'z-index': '99'})
+            distance = distanceOffset.x
+        }
+
+        if (!state.currentIndexChanging) { // 当拖拽元素在设置时不执行，避免太过频繁的更新数据导致卡顿
+            // 前一个的边界值存在 且 距离超过该边界时，认为排序向前移动
+            if (state.boundaryPre !== undefined && distance < state.boundaryPre) {
+                // 更新排序，并获取拖拽元素所取代元素的初始排序（排序列表初始化时的排序）
+                willIndex = state._currentIdx - 1
+                var preOriginalIndex = state.posList.filter(function (item) {
+                    return item.currentIndex === willIndex
+                })[0].originalIndex
+                // 更新currentIndex字段，并更改拖拽元素所取代元素的偏移
+                if (dragDirection == 'dragY') {
+                    state.posList[preOriginalIndex].translate.y = state.posList[preOriginalIndex].translate.y + state.dragEle.size.height
+                } else if (dragDirection == 'dragX') {
+                    state.posList[preOriginalIndex].translate.x = state.posList[preOriginalIndex].translate.x + state.dragEle.size.width
+                }
+                state.posList[preOriginalIndex].currentIndex = parseInt(state._currentIdx)
+                state.posList[originalIndex].currentIndex = parseInt(willIndex)
+                ownerInstance.callMethod('updatePos', {pos: state.posList[preOriginalIndex], updateIndex: preOriginalIndex, oldPos: state._currentIdx, newPos: willIndex})
+
+                // 更新操作数据
+                state._currentIdx = state._currentIdx - 1
+                if (dragDirection == 'dragY') {
+                    state.dragEndDistance -= state.posList[preOriginalIndex].size.height
+                } else if (dragDirection == 'dragX') {
+                    state.dragEndDistance -= state.posList[preOriginalIndex].size.width
+                }
+                
+                // 当排序有变化时，锁定，直到界面更新渲染完毕后取消锁定
+                state.currentIndexChanging = true
+            } else if (state.boundaryNext !== undefined && distance > state.boundaryNext) {
+                // 更新排序，并获取拖拽元素所取代元素的初始排序（排序列表初始化时的排序）
+                willIndex = state._currentIdx + 1
+                var nextOriginalIndex = state.posList.filter(function (item) {
+                    return item.currentIndex === willIndex
+                })[0].originalIndex
+                // 更新currentIndex字段，并更改拖拽元素所取代元素的偏移
+                if (dragDirection == 'dragY') {
+                    state.posList[nextOriginalIndex].translate.y = state.posList[nextOriginalIndex].translate.y - state.dragEle.size.height
+                } else if (dragDirection == 'dragX') {
+                    state.posList[nextOriginalIndex].translate.x = state.posList[nextOriginalIndex].translate.x - state.dragEle.size.width
+                }
+                state.posList[nextOriginalIndex].currentIndex = parseInt(state._currentIdx)
+                state.posList[originalIndex].currentIndex = parseInt(willIndex)
+                ownerInstance.callMethod('updatePos', {pos: state.posList[nextOriginalIndex], updateIndex: nextOriginalIndex, oldPos: state._currentIdx, newPos: willIndex})
+                
+                // 更新操作数据
+                state._currentIdx = state._currentIdx + 1
+                if (dragDirection == 'dragY') {
+                    state.dragEndDistance += state.posList[nextOriginalIndex].size.height
+                } else if (dragDirection == 'dragX') {
+                    state.dragEndDistance += state.posList[nextOriginalIndex].size.width
+                }
+                
+                // 当排序有变化时，锁定，直到界面更新渲染完毕后取消锁定
+                state.currentIndexChanging = true
+            }
+            // 如果排序有变化，则更新前一个/后一个边界值
+            if (state.currentIndexChanging) {
+                state.boundaryPre = state.bounds[state._currentIdx - 1]
+                state.boundaryNext = state.bounds[state._currentIdx]
+            }
+        }
+
+        state.lastPoint = {x: clientX, y: clientY}
+        state.currentIndexChanging = false
+        if (state.dragging) {
+            return false
+        }
+    },
+    touchEnd: function (e, ownerInstance) {
+        var state = ownerInstance.getState()
+        if (!state.dragStartOffset) {
+            return
+        }
+        var dragDirection = e.currentTarget.dataset.dragDirection
+        // 清除拖拽起始点坐标，仅在长按后可获得起始点坐标
+        state.dragStartOffset = undefined
+        state.dragging = false
+        
+        if (state.dragEle) {
+            var originalIndex = state.dragEle.originalIndex
+            ownerInstance.removeClass('dragging')
+            // ownerInstance.removeClass('item-dragging')
+            // 根据最终拖拽元素的偏移，更新拖拽元素的位置
+            if (dragDirection == 'dragY') {
+                state.posList[originalIndex].translate.y = state.dragEle.translate.y + state.dragEndDistance
+                ownerInstance.setStyle({'-webkit-transition': state.transitionStyle ? (state.transitionStyle['-webkit-transition'] + ', transform 0.3s') : 'transform 0.3s', 'transition': state.transitionStyle ? (state.transitionStyle['transition'] + ', transform 0.3s') : 'transform 0.3s', '-webkit-transform': 'translateY(' + state.posList[originalIndex].translate.y + 'px)', 'transform': 'translateY(' + state.posList[originalIndex].translate.y + 'px)', 'z-index': '1'})
+            } else if (dragDirection == 'dragX') {
+                state.posList[originalIndex].translate.x = state.dragEle.translate.x + state.dragEndDistance
+                ownerInstance.setStyle({'-webkit-transition': state.transitionStyle ? (state.transitionStyle['-webkit-transition'] + ', transform 0.3s') : 'transform 0.3s', 'transition': state.transitionStyle ? (state.transitionStyle['transition'] + ', transform 0.3s') : 'transform 0.3s', '-webkit-transform': 'translateX(' + state.posList[originalIndex].translate.x + 'px)', 'transform': 'translateX(' + state.posList[originalIndex].translate.x + 'px)', 'z-index': '1'})
+            }
+            ownerInstance.callMethod('updatePos', {pos: state.posList[originalIndex]})
+        }
+
+        var _posList = JSON.parse(JSON.stringify(state.posList))
+        var sortArr = _posList.sort(arrayCompare('currentIndex')).map(function (item) {
+            return item.originalIndex
+        })
+        if (state._sortArr && JSON.stringify(state._sortArr) != JSON.stringify(sortArr)) { // 排序改变，触发change事件，否则不触发
+            ownerInstance.callMethod('parentChange', { sort: sortArr })
+        }
+        state._sortArr = undefined
+        
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "miniapp-drag-to-sort",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/ayao1010/miniapp-drag-to-sort.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

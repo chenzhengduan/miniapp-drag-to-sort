@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "drag-to-sort": "/components/drag-to-sort/index",
+    "drag-item": "/components/drag-item/index"
+  }
+}
